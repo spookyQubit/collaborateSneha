@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 
-
 g_data_dir = "./data"
 
 g_dmso_parent_file = os.path.join(g_data_dir, "Galaxy_dmso_bedgraph.txt")
@@ -36,9 +35,27 @@ def split_dmso_files_by_chromosome(parent_file, chromosomes_in_intron_data):
     return files_per_chromosome
 
 
-def get_intron_sum(df_chr, start_intron, end_intron):
-    return df_chr[(df_chr['start'] >= start_intron)
-                & (df_chr['end'] <= end_intron)]['dmso_count'].sum()
+def getOverlap(a, b):
+    return max(0, min(a[1], b[1]) - max(a[0], b[0]))
+
+
+def get_intron_sum(df_dmso_per_chr, start_idx, end_idx):
+
+    df_overlap = df_dmso_per_chr[((df_dmso_per_chr['end'] >= start_idx) & (df_dmso_per_chr['end'] <= end_idx))
+                    | ((df_dmso_per_chr['start'] >= start_idx) & (df_dmso_per_chr['start'] <= end_idx))
+                    | ((df_dmso_per_chr['start'] <= start_idx) & (df_dmso_per_chr['end'] >= end_idx))]
+
+    dmso_count_average = 0
+    length_of_introns_covered = 0
+    for _, row in df_overlap.iterrows():
+        overlap_window = getOverlap([start_idx, end_idx], [row['start'], row['end']])
+        dmso_count_average += (row['dmso_count'] * overlap_window) / (row['end'] - row['start'])
+        length_of_introns_covered += overlap_window
+
+    if length_of_introns_covered == 0:
+        return 0
+    else:
+        return dmso_count_average/length_of_introns_covered
 
 
 def write_intron_scores_data(intron_data_file, dmso_data_file, file_to_write):
